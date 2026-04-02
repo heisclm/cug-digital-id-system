@@ -31,8 +31,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
-         (request.auth.token.email == "feraclem@gmail.com" && request.auth.token.email_verified == true));
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }
 
     function isSecurity() {
@@ -85,7 +84,7 @@ service cloud.firestore {
 
     match /id_cards/{id} {
       allow read: if isAuthenticated() && (isOwner(resource.data.studentUid) || isAdmin() || isSecurity());
-      allow create, update: if isAdmin(); // Only admins or system can issue/revoke
+      allow create, update: if isAdmin(); // Allow admins or Admin SDK
     }
 
     match /students/{studentId} {
@@ -99,8 +98,12 @@ service cloud.firestore {
     }
 
     match /notifications/{id} {
-      allow read, update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
-      allow create: if isAuthenticated(); // Allow system/admins to create notifications for users
+      allow read, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      // Users can only update the 'isRead' field
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      // Only admins or system can create notifications
+      allow create: if isAdmin(); 
     }
   }
 }

@@ -55,32 +55,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (userDoc.exists()) {
           userProfile = userDoc.data() as UserProfile;
-          // Ensure the primary admin email always has the ADMIN role in the profile state
-          const isAdminEmail = user.email?.toLowerCase() === 'feraclem@gmail.com';
-          if (isAdminEmail && userProfile.role !== 'ADMIN') {
-            userProfile.role = 'ADMIN';
-            // Also update it in Firestore to persist the change
-            await setDoc(doc(db, 'users', user.uid), { role: 'ADMIN' }, { merge: true });
-          }
         } else {
-          const isAdminEmail = user.email?.toLowerCase() === 'feraclem@gmail.com';
           userProfile = {
             uid: user.uid,
             email: user.email || '',
-            role: isAdminEmail ? 'ADMIN' : 'STUDENT',
-            fullName: user.displayName || (isAdminEmail ? 'Admin' : 'New Student'),
+            role: 'STUDENT', // Default role for new users
+            fullName: user.displayName || 'New Student',
           };
           await setDoc(doc(db, 'users', user.uid), {
             ...userProfile,
             createdAt: serverTimestamp(),
           });
-          // Send registration notification
-          await sendNotification(
-            user.uid,
-            'Registration Successful',
-            `Welcome to CUG ID, ${userProfile.fullName}! Your account has been successfully created.`,
-            'success'
-          );
+          // Notification should be handled by backend or admin
+          // to comply with security rules (only admins can create notifications)
         }
         setProfile(userProfile);
 

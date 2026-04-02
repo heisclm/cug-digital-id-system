@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-const QR_SECRET = process.env.QR_SECRET || 'cug-secret-key-2024';
+const QR_SECRET = process.env.QR_SECRET || 'cug-id-signing-secret-2024';
 
 export function generateIDPayload(studentData: {
   uid: string;

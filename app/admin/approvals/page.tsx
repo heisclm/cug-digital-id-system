@@ -39,39 +39,11 @@ export default function ApprovalsPage() {
       });
 
       if (status === 'APPROVED') {
-        const expiryDate = new Date();
-        expiryDate.setFullYear(expiryDate.getFullYear() + 1); // 1 year expiry
-
-        const qrData = generateIDPayload({
-          uid: app.studentUid,
-          studentId: app.studentId,
-          fullName: app.fullName,
-          expiryDate: expiryDate.toISOString(),
-        });
-
-        await addDoc(collection(db, 'id_cards'), {
-          studentUid: app.studentUid,
-          studentId: app.studentId,
-          fullName: app.fullName,
-          department: app.department,
-          photoUrl: app.photoUrl,
-          qrData,
-          status: 'ACTIVE',
-          issuedAt: serverTimestamp(),
-          expiryDate: expiryDate,
-        });
-
-        // Also update student profile with studentId and department if not set
-        await updateDoc(doc(db, 'users', app.studentUid), {
-          studentId: app.studentId,
-          department: app.department,
-        });
-
         // Send approval notification
         await sendNotification(
           app.studentUid,
-          'ID Card Approved',
-          `Congratulations! Your digital ID card application has been approved and your ID is now active.`,
+          'Application Approved',
+          `Congratulations! Your ID card application has been approved. Please proceed to payment to generate your digital ID.`,
           'success'
         );
       } else {

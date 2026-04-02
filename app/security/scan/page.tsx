@@ -1,19 +1,23 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import DashboardLayout from '@/components/dashboard-layout';
 import { useAuth } from '@/lib/auth-context';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import { ShieldCheck, AlertTriangle, CheckCircle2, UserCircle, Loader2 } from 'lucide-react';
-import { verifyIDPayload } from '@/lib/qr';
-import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore';
+import { Shield, QrCode, CheckCircle, XCircle, Loader2, User, AlertCircle } from 'lucide-react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
+import { verifyIDPayload } from '@/lib/qr';
+import Image from 'next/image';
 
-export default function SecurityScannerPage() {
+export default function SecurityScanPage() {
   const { profile } = useAuth();
   const [scanResult, setScanResult] = useState<any>(null);
-  const [scanning, setScanning] = useState(true);
+  const [isScanning, setIsScanning] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [studentDetails, setStudentDetails] = useState<any>(null);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
     if (profile?.role !== 'SECURITY' && profile?.role !== 'ADMIN') return;
@@ -25,137 +29,201 @@ export default function SecurityScannerPage() {
     );
 
     scanner.render(onScanSuccess, onScanFailure);
-
-    async function onScanSuccess(decodedText: string) {
-      const result = verifyIDPayload(decodedText);
-      const finalResult = result || { error: 'Invalid QR Code Signature' };
-      setScanResult(finalResult);
-      setScanning(false);
-      scanner.clear();
-
-      // Save scan to Firestore
-      try {
-        await addDoc(collection(db, 'scans'), {
-          studentId: result?.s || 'N/A',
-          studentName: result?.n || 'Unknown',
-          scannedBy: profile?.uid,
-          scannedAt: serverTimestamp(),
-          status: result ? (result.expired ? 'EXPIRED' : 'VERIFIED') : 'INVALID'
-        });
-      } catch (error) {
-        console.error("Error saving scan:", error);
-      }
-    }
-
-    function onScanFailure(error: any) {
-      // console.warn(`Code scan error = ${error}`);
-    }
+    scannerRef.current = scanner;
 
     return () => {
-      scanner.clear().catch(e => console.error("Failed to clear scanner", e));
+      scanner.clear().catch(error => console.error("Failed to clear scanner", error));
     };
   }, [profile]);
 
+  async function onScanSuccess(decodedText: string) {
+    if (loading) return;
+    
+    setLoading(true);
+    setError(null);
+    setScanResult(null);
+    setStudentDetails(null);
+
+    try {
+      const verifiedData = verifyIDPayload(decodedText);
+      
+      if (!verifiedData) {
+        setError("Invalid QR Code signature. This ID may be forged.");
+        await recordScan("INVALID", "Unknown");
+        return;
+      }
+
+      if (verifiedData.expired) {
+        setError("This ID card has expired.");
+        await recordScan("EXPIRED", verifiedData.s);
+        return;
+      }
+
+      // Fetch latest details from Firestore to ensure it's not revoked
+      const q = query(
+        collection(db, 'id_cards'),
+        where('studentId', '==', verifiedData.s),
+        where('status', '==', 'ACTIVE'),
+        limit(1)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        setError("No active ID card found for this student in the database.");
+        await recordScan("INVALID", verifiedData.s);
+        return;
+      }
+
+      const idCardData = querySnapshot.docs[0].data();
+      setStudentDetails(idCardData);
+      setScanResult("VERIFIED");
+      await recordScan("VERIFIED", verifiedData.s);
+      
+      // Stop scanning once verified
+      if (scannerRef.current) {
+        // We don't necessarily want to stop, maybe just show a "Scan Next" button
+        // scannerRef.current.pause();
+      }
+
+    } catch (err) {
+      console.error("Scan processing error:", err);
+      setError("Failed to process scan. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function onScanFailure(error: any) {
+    // console.warn(`Code scan error = ${error}`);
+  }
+
+  const recordScan = async (status: string, studentId: string) => {
+    try {
+      await addDoc(collection(db, 'scans'), {
+        studentId,
+        scannedBy: profile?.uid,
+        scannedAt: serverTimestamp(),
+        status,
+      });
+    } catch (err) {
+      console.error("Error recording scan:", err);
+    }
+  };
+
   if (profile?.role !== 'SECURITY' && profile?.role !== 'ADMIN') {
-    return <div className="p-8 text-center font-bold text-red-500">Unauthorized Access</div>;
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
+          <AlertCircle size={48} className="text-red-500" />
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <p className="text-gray-500">Only security personnel can access this page.</p>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Security Verification</h1>
-            <p className="text-gray-500 dark:text-gray-400 font-medium">Scan student QR codes for instant verification.</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <Shield className="text-orange-500" />
+              Security Verification
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">Scan student QR codes to verify identity and campus access.</p>
           </div>
-          {!scanning && (
-            <button 
-              onClick={() => window.location.reload()}
-              className="w-full sm:w-auto px-6 py-2.5 bg-orange-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-orange-500/20"
-            >
-              Scan Next
-            </button>
-          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8 space-y-6 overflow-hidden">
-            <h2 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
-              <ShieldCheck className="text-orange-500" size={20} />
-              Live Scanner
+          <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8 space-y-6">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <QrCode size={20} className="text-orange-500" />
+              Scanner
             </h2>
-            <div id="reader" className="rounded-2xl overflow-hidden border-none bg-gray-50 dark:bg-gray-800"></div>
+            <div id="reader" className="overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800"></div>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl text-xs text-gray-500 font-medium">
+              Position the student&apos;s QR code within the frame to scan.
+            </div>
           </div>
 
           <div className="space-y-6">
-            <AnimatePresence mode="wait">
-              {!scanResult ? (
-                <motion.div
-                  key="idle"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-12 text-center space-y-4"
-                >
-                  <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto text-gray-300 dark:text-gray-600">
-                    <Loader2 className="animate-spin" size={32} />
-                  </div>
-                  <p className="text-gray-400 dark:text-gray-500 font-medium">Waiting for scan...</p>
-                </motion.div>
-              ) : scanResult.error ? (
-                <motion.div
-                  key="error"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="bg-red-50 dark:bg-red-500/10 rounded-3xl border border-red-100 dark:border-red-500/20 p-8 text-center space-y-4"
-                >
-                  <div className="w-16 h-16 bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-500 rounded-2xl flex items-center justify-center mx-auto">
-                    <AlertTriangle size={32} />
-                  </div>
-                  <h3 className="text-xl font-bold text-red-900 dark:text-red-400">Verification Failed</h3>
-                  <p className="text-red-700 dark:text-red-300 font-medium">{scanResult.error}</p>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="success"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className={`rounded-3xl border p-8 space-y-6 ${scanResult.expired ? 'bg-orange-50 dark:bg-orange-500/10 border-orange-100 dark:border-orange-500/20' : 'bg-green-50 dark:bg-green-500/10 border-green-100 dark:border-green-500/20'}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${scanResult.expired ? 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-500' : 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-500'}`}>
-                      {scanResult.expired ? <AlertTriangle size={24} /> : <CheckCircle2 size={24} />}
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${scanResult.expired ? 'bg-orange-200 dark:bg-orange-500/30 text-orange-800 dark:text-orange-300' : 'bg-green-200 dark:bg-green-500/30 text-green-800 dark:text-green-300'}`}>
-                      {scanResult.expired ? 'Expired' : 'Verified'}
-                    </span>
-                  </div>
+            {loading && (
+              <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-12 flex flex-col items-center justify-center space-y-4">
+                <Loader2 className="animate-spin text-orange-500" size={48} />
+                <p className="font-bold text-gray-500">Verifying ID...</p>
+              </div>
+            )}
 
-                  <div className="flex gap-6 items-center">
-                    <div className="w-24 h-24 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 flex items-center justify-center text-gray-200 dark:text-gray-600">
-                      <UserCircle size={64} />
-                    </div>
-                    <div className="space-y-1">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">{scanResult.n}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">ID: {scanResult.s}</p>
-                      <p className={`text-xs font-bold ${scanResult.expired ? 'text-orange-600 dark:text-orange-500' : 'text-green-600 dark:text-green-500'}`}>
-                        Expires: {new Date(scanResult.e).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
+            {!loading && !scanResult && !error && (
+              <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-12 flex flex-col items-center justify-center text-center space-y-4">
+                <QrCode size={64} className="text-gray-200 dark:text-gray-700" />
+                <div>
+                  <h3 className="font-bold text-gray-400">Waiting for Scan</h3>
+                  <p className="text-sm text-gray-400">Scan a student ID card to see details.</p>
+                </div>
+              </div>
+            )}
 
-                  <div className="pt-6 border-t border-gray-200/50 dark:border-gray-700/50 grid grid-cols-2 gap-4">
-                    <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded-xl">
-                      <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Scan Time</div>
-                      <div className="text-xs font-bold text-gray-800 dark:text-gray-300">{new Date().toLocaleTimeString()}</div>
-                    </div>
-                    <div className="bg-white/50 dark:bg-gray-800/50 p-3 rounded-xl">
-                      <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Status</div>
-                      <div className="text-xs font-bold text-gray-800 dark:text-gray-300">Authorized</div>
+            {error && (
+              <div className="bg-red-50 dark:bg-red-500/10 rounded-3xl border border-red-100 dark:border-red-500/20 p-8 space-y-4 text-center">
+                <XCircle size={64} className="text-red-500 mx-auto" />
+                <div>
+                  <h3 className="text-xl font-bold text-red-600 dark:text-red-500">Verification Failed</h3>
+                  <p className="text-red-500/80 font-medium">{error}</p>
+                </div>
+                <button 
+                  onClick={() => { setError(null); setScanResult(null); }}
+                  className="px-6 py-2 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-all"
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            {scanResult === "VERIFIED" && studentDetails && (
+              <div className="bg-green-50 dark:bg-green-500/10 rounded-3xl border border-green-100 dark:border-green-500/20 p-8 space-y-6">
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <CheckCircle size={64} className="text-green-500" />
+                  <div>
+                    <h3 className="text-2xl font-bold text-green-600 dark:text-green-500">Access Granted</h3>
+                    <p className="text-green-600/80 font-bold uppercase text-xs tracking-widest">Verified Student</p>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 flex gap-4 border border-green-100 dark:border-green-500/20 shadow-sm">
+                  <div className="relative w-20 h-24 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden shrink-0 border border-gray-100 dark:border-gray-800">
+                    {studentDetails.photoUrl ? (
+                      <Image 
+                        src={studentDetails.photoUrl} 
+                        alt="Student" 
+                        fill
+                        className="object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-300"><User size={32} /></div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="text-lg font-bold text-gray-900 dark:text-white truncate">{studentDetails.fullName}</div>
+                    <div className="text-sm font-bold text-orange-500">{studentDetails.studentId}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate">{studentDetails.department}</div>
+                    <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mt-2">
+                      Expires: {studentDetails.expiryDate?.toDate().toLocaleDateString()}
                     </div>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                </div>
+
+                <button 
+                  onClick={() => { setScanResult(null); setStudentDetails(null); }}
+                  className="w-full py-4 bg-green-500 text-white rounded-2xl font-bold hover:bg-green-600 transition-all shadow-lg shadow-green-500/20"
+                >
+                  Scan Next Student
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

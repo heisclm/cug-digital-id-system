@@ -83,7 +83,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="John Doe"
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all text-gray-900 dark:text-white"
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all text-black dark:text-white"
                 />
               </div>
             )}
@@ -95,7 +95,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="student@cug.edu.gh"
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all text-gray-900 dark:text-white"
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all text-black dark:text-white"
               />
             </div>
             {!isResetPassword && (
@@ -123,7 +123,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all text-gray-900 dark:text-white pr-12"
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all text-black dark:text-white pr-12"
                   />
                   <button
                     type="button"

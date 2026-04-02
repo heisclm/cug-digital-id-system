@@ -65,4 +65,4 @@ A modern, secure, and highly scalable digital identification platform built for 
 ```bash
 git clone [https://github.com/yourusername/cug-digital-id-system.git](https://github.com/yourusername/cug-digital-id-system.git)
 cd cug-digital-id-system
-npm install
+npm install --legacy-peer-deps
