@@ -4,13 +4,14 @@ import React, { useState } from 'react';
 import Sidebar from './sidebar';
 import Navbar from './navbar';
 import { useAuth } from '@/lib/auth-context';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Eye, EyeOff } from 'lucide-react';
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, login, loginWithEmail, signUp, resetPassword } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [isResetPassword, setIsResetPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -82,7 +83,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="John Doe"
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all dark:text-white"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all text-gray-900 dark:text-white"
                 />
               </div>
             )}
@@ -94,7 +95,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="student@cug.edu.gh"
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all dark:text-white"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all text-gray-900 dark:text-white"
               />
             </div>
             {!isResetPassword && (
@@ -115,14 +116,23 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                     </button>
                   )}
                 </div>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all dark:text-white"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 transition-all text-gray-900 dark:text-white pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
             )}
 
