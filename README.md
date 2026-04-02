@@ -1,224 +1,68 @@
-Perfect — this is exactly how you level up your project 🔥
-Now let’s turn Gemini’s feedback into a **powerful FIX prompt** for Google AI Studio.
+# 🎓 CUG Digital ID System
+
+A modern, secure, and highly scalable digital identification platform built for the Catholic University of Ghana (CUG). This system transitions the university from physical ID cards to a unified digital ecosystem, enabling students to apply, pay, and access their IDs dynamically while giving security personnel real-time verification tools.
 
 ---
 
-# 🚀 SECURITY + SYSTEM FIX PROMPT (Copy & Paste)
+## 🚀 Key Features
 
-**Prompt:**
+### 🔐 Role-Based Access Control (RBAC)
+- **Students**: Apply for new/renewal IDs, process payments, and access active digital IDs with dynamically generated QR codes.
+- **Administrators**: Review applications, manage the centralized student database, and oversee the payment pipeline.
+- **Security Personnel**: Access dedicated scanning modules to verify digital IDs in real-time.
 
-Audit and fix the Smart ID Card Management System based on the following detected issues. Improve security, architecture, and missing functionality to production level.
+### 🛡️ Cryptographically Secure QR Codes
+- QR payloads are protected against forgery using **HMAC-SHA256 signatures**. 
+- Scanners verify the payload integrity locally before querying the database, ensuring zero-trust verification of expiry dates and student identity.
 
----
+### 💳 Automated Payment Pipeline
+- Integrated **Paystack Webhooks** for seamless application fee processing.
+- Listens for `charge.success` events to automatically update payment records and trigger application approval workflows.
 
-## 🔴 CRITICAL: Fix Security Issues First
-
-### 1. ❌ Remove Hardcoded Admin Email
-
-* Remove any hardcoded admin email (e.g., `feraclem@gmail.com`) from:
-
-  * auth-context
-  * Firestore rules
-
-### ✅ Replace with:
-
-* Role-based system using:
-
-  * Firestore `role` field OR
-  * Firebase Custom Claims (preferred)
-
-### Implement:
-
-* Admin role assignment system
-* Secure role checking (no client-side trust)
+### ⚡ Real-Time Infrastructure
+- Fully reactive UI powered by **Firebase Firestore** `onSnapshot` listeners.
+- Real-time in-app notification system alerts students of application status changes and successful registrations.
+- Pre-validation logic checks applicant IDs against a pre-loaded university database before allowing application submission.
 
 ---
 
-### 2. ❌ Fix Firestore Notification Security
+## 💻 Tech Stack
 
-Current issue:
+**Frontend Architecture:**
+- **Framework**: Next.js 15 (App Router)
+- **Library**: React 19
+- **Styling**: Tailwind CSS v4, PostCSS, Framer Motion
+- **Form Management**: React Hook Form with Zod schema validation
+- **QR Utilities**: `qrcode.react`, `html5-qrcode`
 
-* Any authenticated user can create notifications
-
-### ✅ Fix:
-
-* Only allow:
-
-  * Admins OR
-  * Backend system (API routes)
-
-### Update Firestore rules:
-
-* Block users from creating arbitrary notifications
-* Users can only:
-
-  * Read their own notifications
-  * Update `isRead` field only
+**Backend & Cloud Infrastructure:**
+- **Database**: Firebase Firestore (NoSQL)
+- **Authentication**: Firebase Auth (Email/Password & Google OAuth)
+- **Storage**: Firebase Storage (Passport photo uploads)
+- **Payments**: Paystack API
+- **AI Integrations**: Google Gemini API (`@google/genai`)
 
 ---
 
-### 3. ❌ Fix Paystack Webhook (IMPORTANT)
+## ⚙️ System Architecture & Data Flow
 
-Current issue:
-
-* Webhook only logs data (not useful)
-
-### ✅ Fix:
-
-* Implement real webhook logic using **Firebase Admin SDK**
-
-Webhook should:
-
-* Verify Paystack transaction
-* Update Firestore:
-
-  * Mark payment as successful
-  * Update ID application status
-  * Trigger ID card generation
-  * Create notification
+1. **Validation Phase**: A user inputs their Student ID. The system queries the `students` Firestore collection to verify enrollment and auto-fills data.
+2. **Application Phase**: The user uploads a passport photo (saved to Firebase Storage) and submits the application form (saved to `applications` collection).
+3. **Checkout Phase**: A Paystack transaction is initialized. Upon success, the Paystack Webhook (`/api/paystack/webhook/route.ts`) cryptographically verifies the event signature and updates the backend.
+4. **Issuance**: Once approved, an active `id_card` record is generated.
+5. **Verification**: Security scans the ID's QR code. The payload is split, re-hashed with the server secret, and checked for authenticity and expiry.
 
 ---
 
-## 🧱 ARCHITECTURE IMPROVEMENTS
+## 🛠️ Local Development Setup
 
-### 4. ✅ Setup Firebase Admin SDK
+### Prerequisites
+- Node.js (v18+ recommended)
+- A Firebase Project (with Auth, Firestore, and Storage enabled)
+- A Paystack Account
 
-* Create secure backend (Next.js API route)
-* Use Admin SDK for:
-
-  * Writing sensitive data
-  * Updating roles
-  * Handling payments
-
----
-
-### 5. ❌ Fix Firebase Config Exposure
-
-Current issue:
-
-* Config stored in JSON file
-
-### ✅ Fix:
-
-* Move all config to `.env.local`
-
-Example:
-
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=xxx
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=xxx
-```
-
-* Update code to use `process.env`
-
----
-
-## ⚙️ MISSING CORE FEATURE
-
-### 6. ❌ Implement ID Card Generation Logic
-
-Currently missing after payment
-
-### ✅ Implement:
-
-When:
-
-* Payment is successful
-
-System should:
-
-1. Generate ID card
-2. Create QR code
-3. Save ID data in Firestore
-4. Update student status → “ACTIVE”
-5. Notify user
-
----
-
-## 🔐 SECURITY UPGRADES
-
-* Validate all sensitive actions in backend (not frontend)
-* Prevent duplicate student IDs
-* Add proper error handling
-* Sanitize all inputs
-
----
-
-## 🎨 UI/UX IMPROVEMENTS
-
-### 7. Add Image Cropper
-
-* Use library like:
-
-  * react-image-crop
-* Ensure:
-
-  * Passport photos are uniform (e.g., 1:1 ratio)
-
----
-
-### 8. Add Image Compression
-
-* Use:
-
-  * browser-image-compression
-* Compress before upload to Firebase Storage
-
----
-
-## ⚡ PERFORMANCE IMPROVEMENTS
-
-* Optimize Firebase queries
-* Reduce unnecessary re-renders
-* Lazy load components where needed
-
----
-
-## 📂 OUTPUT REQUIREMENTS
-
-After fixing everything:
-
-1. Show updated folder structure
-2. Show updated Firestore rules
-3. Show secure webhook implementation
-4. Show Firebase Admin setup
-5. Highlight all fixes made
-6. Confirm:
-
-   * System is secure
-   * No hardcoded sensitive data
-   * Payment flow works end-to-end
-   * ID generation works
-
----
-
-## 🔴 IMPORTANT RULES
-
-* Do NOT skip any issue
-* Fix everything completely
-* Ensure system is production-ready
-* Do NOT leave placeholder logic
-
----
-
-## ✅ FINAL STEP
-
-Ask:
-
-👉 **“Do you want to proceed with testing or deployment?”**
-
----
-
-## 💡 Pro Move
-
-After this, also tell AI:
-
-👉 “Add logging and error monitoring for all backend actions”
-
----
-
-If you want next, I can:
-🔥 Give you **ready-to-use Firebase Admin + Paystack webhook code**
-🔥 Or help you **secure your Firestore rules manually**
-
-Just tell me 👍
+### 1. Clone & Install
+```bash
+git clone [https://github.com/yourusername/cug-digital-id-system.git](https://github.com/yourusername/cug-digital-id-system.git)
+cd cug-digital-id-system
+npm install
