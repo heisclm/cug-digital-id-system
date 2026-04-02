@@ -220,9 +220,9 @@ export default function StudentDashboard() {
         <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8 space-y-6 text-center transition-colors">
           <h2 className="text-xl font-bold text-gray-800 dark:text-white">Verification QR</h2>
           <div className="aspect-square w-full max-w-[200px] mx-auto bg-gray-50 dark:bg-gray-800 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center p-4">
-            {idCard?.qrData ? (
+            {idCard?.qrPayload || idCard?.qrData ? (
               <div className="bg-white p-2 rounded-xl">
-                <QRCodeSVG value={idCard.qrData} size={160} />
+                <QRCodeSVG value={idCard.qrPayload || idCard.qrData} size={160} />
               </div>
             ) : (
               <div className="text-center space-y-2">

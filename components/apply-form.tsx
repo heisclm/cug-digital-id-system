@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { Upload, CheckCircle, Loader2, CreditCard, X, Crop as CropIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -51,7 +51,13 @@ export default function ApplyForm() {
   const router = useRouter();
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const photoUrlRef = useRef<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitStep, setSubmitStep] = useState<'idle' | 'uploading' | 'saving'>('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isValidated, setIsValidated] = useState(false);
@@ -97,14 +103,20 @@ export default function ApplyForm() {
   const getCroppedImg = useCallback(async () => {
     if (!completedCrop || !imgRef.current) return;
 
+    const targetSize = 400; // Slightly larger for better quality before compression
     const canvas = document.createElement('canvas');
+    canvas.width = targetSize;
+    canvas.height = targetSize;
+    
     const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
     const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
-    canvas.width = completedCrop.width;
-    canvas.height = completedCrop.height;
     const ctx = canvas.getContext('2d');
 
     if (ctx) {
+      // Use better image smoothing
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
       ctx.drawImage(
         imgRef.current,
         completedCrop.x * scaleX,
@@ -113,32 +125,98 @@ export default function ApplyForm() {
         completedCrop.height * scaleY,
         0,
         0,
-        completedCrop.width,
-        completedCrop.height,
+        targetSize,
+        targetSize,
       );
 
       return new Promise<File>((resolve) => {
-        canvas.toBlob(async (blob) => {
+        // Native canvas compression is much faster than external libraries
+        canvas.toBlob((blob) => {
           if (!blob) return;
           const file = new File([blob], 'passport_photo.jpg', { type: 'image/jpeg' });
-          
-          const options = {
-            maxSizeMB: 0.5,
-            maxWidthOrHeight: 800,
-            useWebWorker: true,
-          };
-          
-          try {
-            const compressedFile = await imageCompression(file, options);
-            resolve(compressedFile);
-          } catch (error) {
-            console.error('Compression error:', error);
-            resolve(file);
-          }
-        }, 'image/jpeg');
+          resolve(file);
+        }, 'image/jpeg', 0.7); // 0.7 quality at 400x400 is ~30-50KB
       });
     }
   }, [completedCrop]);
+
+  const startBackgroundUpload = async (file: File) => {
+    if (!profile?.uid) {
+      console.error('No user profile found for upload');
+      setUploadError(true);
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setPhotoUrl(null);
+    setUploadError(false);
+    photoUrlRef.current = null;
+    
+    try {
+      // Convert file to Base64 first (we'll use this as a fallback)
+      const reader = new FileReader();
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result); // Full data URL
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const photoRef = ref(storage, `photos/${profile.uid}_${Date.now()}.jpg`);
+      
+      // Progress simulation
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 100);
+
+      try {
+        // Try Storage upload with a 15-second timeout
+        const uploadPromise = uploadString(photoRef, base64Data.split(',')[1], 'base64', {
+          contentType: 'image/jpeg',
+          customMetadata: { uid: profile.uid }
+        });
+
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Storage timeout')), 15000)
+        );
+
+        const snapshot = await Promise.race([uploadPromise, timeoutPromise]) as any;
+        const url = await getDownloadURL(snapshot.ref);
+        
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+        setPhotoUrl(url);
+        photoUrlRef.current = url;
+        setIsUploading(false);
+        return url;
+      } catch (storageError) {
+        console.warn('Firebase Storage failed or timed out, using Firestore fallback:', storageError);
+        
+        // FALLBACK: Use the Base64 data URL directly
+        // This is extremely robust as it doesn't rely on the Storage service
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+        setPhotoUrl(base64Data);
+        photoUrlRef.current = base64Data;
+        setIsUploading(false);
+        return base64Data;
+      }
+    } catch (error: any) {
+      console.error('Upload initialization error:', error);
+      setUploadError(true);
+      setIsUploading(false);
+      throw error;
+    }
+  };
 
   const handleCropComplete = async () => {
     const croppedFile = await getCroppedImg();
@@ -146,6 +224,9 @@ export default function ApplyForm() {
       setPhoto(croppedFile);
       setPhotoPreview(URL.createObjectURL(croppedFile));
       setIsCropping(false);
+      
+      // Start background upload immediately after crop
+      startBackgroundUpload(croppedFile);
     }
   };
 
@@ -209,26 +290,51 @@ export default function ApplyForm() {
     }
 
     setSubmitting(true);
+    
     try {
-      const photoRef = ref(storage, `photos/${profile?.uid}_${Date.now()}`);
-      await uploadBytes(photoRef, photo);
-      const photoUrl = await getDownloadURL(photoRef);
+      let finalPhotoUrl = photoUrlRef.current;
 
+      // If background upload hasn't finished, wait for it
+      if (!finalPhotoUrl) {
+        setSubmitStep('uploading');
+        
+        // If it's not even uploading, start it now
+        if (!isUploading) {
+          finalPhotoUrl = await startBackgroundUpload(photo);
+        } else {
+          // Wait for photoUrlRef.current to be set (max 50 seconds to match 45s timeout)
+          let attempts = 0;
+          while (!photoUrlRef.current && attempts < 100) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+            if (uploadError) throw new Error('Photo upload failed. Please retry the upload before submitting.');
+          }
+          finalPhotoUrl = photoUrlRef.current;
+        }
+        
+        if (!finalPhotoUrl) {
+          throw new Error('Photo upload timed out. Please try again.');
+        }
+      }
+
+      setSubmitStep('saving');
       await addDoc(collection(db, 'applications'), {
         ...data,
         studentUid: profile?.uid,
-        photoUrl,
+        photoUrl: finalPhotoUrl,
         status: 'PENDING',
         submittedAt: serverTimestamp(),
       });
 
       setSuccess(true);
-      setTimeout(() => router.push('/'), 3000);
-    } catch (error) {
+      setTimeout(() => router.push('/'), 1500);
+    } catch (error: any) {
       console.error('Error submitting application:', error);
-      alert('Failed to submit application. Please try again.');
+      const message = error.message || 'Failed to submit application. Please try again.';
+      alert(message);
     } finally {
       setSubmitting(false);
+      setSubmitStep('idle');
     }
   };
 
@@ -347,10 +453,27 @@ export default function ApplyForm() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-bold text-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-bold text-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 relative overflow-hidden"
           >
-            {submitting ? <Loader2 className="animate-spin" /> : <CreditCard size={20} />}
-            Submit Application
+            {submitting && (
+              <div 
+                className="absolute left-0 top-0 bottom-0 bg-orange-500/20 transition-all duration-300" 
+                style={{ width: `${uploadProgress}%` }}
+              />
+            )}
+            <div className="flex items-center justify-center gap-3 relative z-10">
+              {submitting ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  {submitStep === 'uploading' ? `Uploading Photo (${uploadProgress}%)` : 'Saving Application...'}
+                </>
+              ) : (
+                <>
+                  <CreditCard size={20} />
+                  Submit Application
+                </>
+              )}
+            </div>
           </button>
         </div>
 
@@ -359,13 +482,58 @@ export default function ApplyForm() {
             <h2 className="text-lg font-bold text-gray-800 dark:text-white">Passport Photo</h2>
             <div className="relative aspect-square w-full bg-gray-50 dark:bg-gray-800 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center overflow-hidden group">
               {photoPreview ? (
-                <Image 
-                  src={photoPreview} 
-                  alt="Preview" 
-                  fill
-                  className="object-cover"
-                  referrerPolicy="no-referrer"
-                />
+                <>
+                  <Image 
+                    src={photoPreview} 
+                    alt="Preview" 
+                    fill
+                    className="object-cover"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                  />
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-6 backdrop-blur-sm">
+                      <Loader2 className="animate-spin mb-3 text-orange-500" size={32} />
+                      <p className="text-sm font-bold mb-1">Processing Photo</p>
+                      <p className="text-[10px] opacity-70 mb-3 text-center">Finalizing your ID photo...</p>
+                      <div className="w-full max-w-[140px] h-1.5 bg-white/20 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-orange-500 transition-all duration-300 ease-out" 
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] font-mono mt-2">{uploadProgress}%</p>
+                    </div>
+                  )}
+                  {uploadError && (
+                    <div className="absolute inset-0 bg-red-500/90 flex flex-col items-center justify-center text-white p-4 text-center backdrop-blur-sm">
+                      <X className="mb-2 text-white" size={32} />
+                      <p className="text-sm font-bold mb-1">Upload Failed</p>
+                      <p className="text-[10px] opacity-90 mb-4">Connection timed out or interrupted.</p>
+                      <div className="flex gap-2">
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setUploadError(false);
+                            setIsUploading(false);
+                            setPhotoPreview(null);
+                            setPhoto(null);
+                          }}
+                          className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => photo && startBackgroundUpload(photo)}
+                          className="px-4 py-1.5 bg-white text-red-600 rounded-lg text-xs font-bold hover:bg-gray-100 transition-all shadow-lg"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <>
                   <Upload className="text-gray-300 dark:text-gray-600 mb-2" size={48} />

@@ -27,6 +27,14 @@ export async function POST(req: Request) {
     const { applicationId, studentUid, studentId } = metadata;
 
     try {
+      // 0. Check for Idempotency
+      const paymentId = `pay_${reference}`;
+      const existingPayment = await adminDb.collection('payments').doc(paymentId).get();
+      if (existingPayment.exists) {
+        console.log(`Payment ${reference} already processed. Skipping.`);
+        return new NextResponse('Already processed', { status: 200 });
+      }
+
       // 1. Verify application exists and is pending
       const appRef = adminDb.collection('applications').doc(applicationId);
       const appDoc = await appRef.get();
@@ -37,12 +45,14 @@ export async function POST(req: Request) {
       }
 
       const appData = appDoc.data();
-      if (appData?.status !== 'APPROVED' && appData?.status !== 'PENDING') {
-         // In some flows it might be APPROVED before payment, in others PENDING
+      
+      // Extra Security: Ensure the application belongs to the studentUid
+      if (appData?.studentUid !== studentUid) {
+        console.error(`Application ${applicationId} does not belong to student ${studentUid}`);
+        return new NextResponse('Unauthorized application access', { status: 403 });
       }
 
       // 2. Create Payment Record
-      const paymentId = `pay_${reference}`;
       await adminDb.collection('payments').doc(paymentId).set({
         id: paymentId,
         applicationId,
@@ -71,15 +81,14 @@ export async function POST(req: Request) {
         expiryDate: expiryDate.toISOString(),
       });
 
-      const qrDataUrl = await QRCode.toDataURL(qrPayload);
-
+      // OPTIMIZATION: Store only the QR payload string, not the Base64 image
       const idCardId = `id_${studentId}_${Date.now()}`;
       await adminDb.collection('id_cards').doc(idCardId).set({
         id: idCardId,
         studentUid,
         studentId,
         applicationId,
-        qrData: qrDataUrl,
+        qrPayload: qrPayload, // Store the raw payload string
         issueDate: FieldValue.serverTimestamp(),
         expiryDate: Timestamp.fromDate(expiryDate),
         status: 'ACTIVE',
