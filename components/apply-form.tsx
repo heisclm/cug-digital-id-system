@@ -8,7 +8,8 @@ import * as z from 'zod';
 import { db, storage } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { Upload, CheckCircle, Loader2, CreditCard, X, Crop as CropIcon } from 'lucide-react';
+import { Upload, CheckCircle, Loader2, CreditCard, X, Crop as CropIcon, Clock } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ReactCrop, { centerCrop, makeAspectCrop, Crop, PixelCrop } from 'react-image-crop';
@@ -279,13 +280,14 @@ export default function ApplyForm() {
   };
 
   const onSubmit = async (data: FormData) => {
+    setValidationError(null);
     if (!isValidated) {
-      alert('Please validate your Student ID before submitting.');
+      setValidationError('Please verify your Student ID before submitting.');
       return;
     }
 
     if (!photo) {
-      alert('Please upload a passport photo');
+      setValidationError('Please upload a passport photo to continue.');
       return;
     }
 
@@ -327,11 +329,10 @@ export default function ApplyForm() {
       });
 
       setSuccess(true);
-      setTimeout(() => router.push('/'), 1500);
+      setTimeout(() => router.push('/'), 2500);
     } catch (error: any) {
       console.error('Error submitting application:', error);
-      const message = error.message || 'Failed to submit application. Please try again.';
-      alert(message);
+      setValidationError(error.message || 'Failed to submit application. Please try again.');
     } finally {
       setSubmitting(false);
       setSubmitStep('idle');
@@ -340,147 +341,226 @@ export default function ApplyForm() {
 
   if (success) {
     return (
-      <div className="max-w-md mx-auto mt-20 text-center space-y-6">
-        <div className="w-20 h-20 bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-500 rounded-full flex items-center justify-center mx-auto">
-          <CheckCircle size={48} />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-md mx-auto mt-20 text-center space-y-8 p-10 bg-white dark:bg-gray-900 rounded-[3rem] shadow-2xl border border-gray-100 dark:border-gray-800"
+      >
+        <div className="relative w-32 h-32 mx-auto">
+          <motion.div 
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", damping: 12, stiffness: 200 }}
+            className="w-full h-full bg-green-500 rounded-full flex items-center justify-center text-white shadow-2xl shadow-green-500/40"
+          >
+            <CheckCircle size={64} strokeWidth={3} />
+          </motion.div>
+          <motion.div 
+            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute inset-0 bg-green-500 rounded-full -z-10"
+          />
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Application Submitted!</h1>
-        <p className="text-gray-500 dark:text-gray-400 font-medium">
-          Your application is being reviewed. You will be notified once it&apos;s approved for payment.
-        </p>
-        <div className="animate-pulse text-orange-500 font-bold">Redirecting to dashboard...</div>
-      </div>
+        <div className="space-y-3">
+          <h1 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight uppercase">Success!</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-bold text-lg leading-relaxed">
+            Your application has been submitted successfully and is now under review.
+          </p>
+        </div>
+        <div className="pt-4">
+          <div className="inline-flex items-center gap-3 px-6 py-3 bg-orange-50 dark:bg-orange-500/10 rounded-2xl text-orange-600 dark:text-orange-400 font-black text-sm uppercase tracking-widest animate-pulse">
+            <Loader2 className="animate-spin" size={18} strokeWidth={3} />
+            Redirecting to dashboard
+          </div>
+        </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2 col-span-1 md:col-span-2">
-              <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Student ID</label>
-              <div className="flex gap-2">
-                <input
-                  {...register('studentId')}
-                  readOnly={isValidated}
-                  className={`flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 dark:text-white ${isValidated ? 'opacity-70 cursor-not-allowed' : ''}`}
+    <div className="max-w-5xl mx-auto">
+      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Main Form Section */}
+        <div className="lg:col-span-8 space-y-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 p-6 sm:p-10 shadow-2xl shadow-gray-200/50 dark:shadow-none space-y-10"
+          >
+            {/* Section 1: Identity */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-orange-500/30">1</div>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight uppercase">Student Identity</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 col-span-1 md:col-span-2">
+                  <label className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Student ID Number</label>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1 group">
+                      <input
+                        {...register('studentId')}
+                        placeholder="e.g. CUG12345"
+                        readOnly={isValidated}
+                        className={`w-full px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent rounded-2xl text-base font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all dark:text-white placeholder:text-gray-400 ${isValidated ? 'opacity-70 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : 'group-hover:bg-gray-100 dark:group-hover:bg-gray-800/80'}`}
+                      />
+                      {isValidated && (
+                        <motion.div 
+                          initial={{ scale: 0 }} 
+                          animate={{ scale: 1 }} 
+                          className="absolute right-4 top-1/2 -translate-y-1/2"
+                        >
+                          <CheckCircle size={24} className="text-green-500" />
+                        </motion.div>
+                      )}
+                    </div>
+                    {isValidated ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsValidated(false);
+                          setValue('fullName', '');
+                          setValue('department', '');
+                          setValue('program', '');
+                        }}
+                        className="px-6 py-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-2xl font-black text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-all flex items-center justify-center gap-2 shrink-0"
+                      >
+                        <X size={18} strokeWidth={3} /> Change
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={validateStudentId}
+                        disabled={isValidating}
+                        className="px-8 py-4 bg-orange-500 text-white rounded-2xl font-black text-sm hover:bg-orange-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-orange-500/20 shrink-0 active:scale-95"
+                      >
+                        {isValidating ? <Loader2 size={18} className="animate-spin" /> : 'Verify ID'}
+                      </button>
+                    )}
+                  </div>
+                  {validationError && <p className="text-xs text-red-500 font-bold mt-2 ml-1">{validationError}</p>}
+                  {errors.studentId && !validationError && <p className="text-xs text-red-500 font-bold mt-2 ml-1">{errors.studentId.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Full Name</label>
+                  <input
+                    {...register('fullName')}
+                    readOnly
+                    placeholder="Verified Name"
+                    className="w-full px-6 py-4 bg-gray-100/50 dark:bg-gray-800/30 border-none rounded-2xl text-base font-bold text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Department</label>
+                  <input
+                    {...register('department')}
+                    readOnly
+                    placeholder="Verified Dept"
+                    className="w-full px-6 py-4 bg-gray-100/50 dark:bg-gray-800/30 border-none rounded-2xl text-base font-bold text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Program</label>
+                  <input
+                    {...register('program')}
+                    readOnly
+                    placeholder="Verified Program"
+                    className="w-full px-6 py-4 bg-gray-100/50 dark:bg-gray-800/30 border-none rounded-2xl text-base font-bold text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">Phone Number</label>
+                  <input
+                    {...register('phoneNumber')}
+                    placeholder="024 XXX XXXX"
+                    className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent rounded-2xl text-base font-bold focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 transition-all dark:text-white placeholder:text-gray-400"
+                  />
+                  {errors.phoneNumber && <p className="text-xs text-red-500 font-bold mt-2 ml-1">{errors.phoneNumber.message}</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Application Details */}
+            <div className="space-y-6 pt-4">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-orange-500/30">2</div>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight uppercase">Application Type</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {['NEW', 'RENEWAL'].map((type) => (
+                  <label key={type} className="relative cursor-pointer group">
+                    <input
+                      type="radio"
+                      {...register('type')}
+                      value={type}
+                      className="sr-only peer"
+                    />
+                    <div className="h-full px-6 py-8 text-center bg-gray-50 dark:bg-gray-800/50 rounded-[2.5rem] border-2 border-transparent peer-checked:border-orange-500 peer-checked:bg-orange-50 dark:peer-checked:bg-orange-500/10 transition-all group-hover:bg-gray-100 dark:group-hover:bg-gray-800 active:scale-95">
+                      <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center transition-all ${watch('type') === type ? 'bg-orange-500 text-white shadow-xl shadow-orange-500/30' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
+                        {type === 'NEW' ? <CreditCard size={32} strokeWidth={2.5} /> : <Clock size={32} strokeWidth={2.5} />}
+                      </div>
+                      <div className={`font-black text-2xl transition-colors ${watch('type') === type ? 'text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {type} ID
+                      </div>
+                      <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 mt-2 uppercase tracking-[0.2em]">
+                        {type === 'NEW' ? 'First time request' : 'Extend existing ID'}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full py-6 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-[2.5rem] font-black text-xl hover:shadow-2xl hover:shadow-orange-500/30 transition-all active:scale-[0.98] flex items-center justify-center gap-4 disabled:opacity-50 relative overflow-hidden group"
+            >
+              {submitting && (
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${uploadProgress}%` }}
+                  className="absolute left-0 top-0 bottom-0 bg-orange-500/40 transition-all duration-300" 
                 />
-                {isValidated ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsValidated(false);
-                      setValue('fullName', '');
-                      setValue('department', '');
-                      setValue('program', '');
-                    }}
-                    className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-bold text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
-                  >
-                    Change
-                  </button>
+              )}
+              <div className="flex items-center justify-center gap-3 relative z-10">
+                {submitting ? (
+                  <>
+                    <Loader2 className="animate-spin" size={28} strokeWidth={3} />
+                    <span className="tracking-tight">
+                      {submitStep === 'uploading' ? `Uploading Photo (${uploadProgress}%)` : 'Saving Application...'}
+                    </span>
+                  </>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={validateStudentId}
-                    disabled={isValidating}
-                    className="px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-bold text-sm hover:bg-gray-800 dark:hover:bg-gray-100 transition-all disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {isValidating ? <Loader2 size={16} className="animate-spin" /> : 'Validate'}
-                  </button>
+                  <>
+                    <CheckCircle size={28} strokeWidth={3} className="group-hover:scale-110 transition-transform" />
+                    <span className="tracking-tight text-2xl uppercase">Submit Application</span>
+                  </>
                 )}
               </div>
-              {validationError && <p className="text-xs text-red-500 font-medium">{validationError}</p>}
-              {isValidated && <p className="text-xs text-green-500 font-medium flex items-center gap-1"><CheckCircle size={12} /> Student ID verified</p>}
-              {errors.studentId && !validationError && <p className="text-xs text-red-500 font-medium">{errors.studentId.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Full Name</label>
-              <input
-                {...register('fullName')}
-                readOnly
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 dark:text-white opacity-70 cursor-not-allowed"
-              />
-              {errors.fullName && <p className="text-xs text-red-500 font-medium">{errors.fullName.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Department</label>
-              <input
-                {...register('department')}
-                readOnly
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 dark:text-white opacity-70 cursor-not-allowed"
-              />
-              {errors.department && <p className="text-xs text-red-500 font-medium">{errors.department.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Program</label>
-              <input
-                {...register('program')}
-                readOnly
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 dark:text-white opacity-70 cursor-not-allowed"
-              />
-              {errors.program && <p className="text-xs text-red-500 font-medium">{errors.program.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Phone Number</label>
-              <input
-                {...register('phoneNumber')}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/20 dark:text-white"
-              />
-              {errors.phoneNumber && <p className="text-xs text-red-500 font-medium">{errors.phoneNumber.message}</p>}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Application Type</label>
-            <div className="flex gap-4">
-              {['NEW', 'RENEWAL'].map((type) => (
-                <label key={type} className="flex-1 cursor-pointer group">
-                  <input
-                    type="radio"
-                    {...register('type')}
-                    value={type}
-                    className="sr-only peer"
-                  />
-                  <div className="px-4 py-3 text-center bg-gray-50 dark:bg-gray-800 rounded-xl font-bold text-sm text-gray-500 dark:text-gray-400 peer-checked:bg-orange-500 peer-checked:text-white transition-all">
-                    {type} ID
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-bold text-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 relative overflow-hidden"
-          >
-            {submitting && (
-              <div 
-                className="absolute left-0 top-0 bottom-0 bg-orange-500/20 transition-all duration-300" 
-                style={{ width: `${uploadProgress}%` }}
-              />
-            )}
-            <div className="flex items-center justify-center gap-3 relative z-10">
-              {submitting ? (
-                <>
-                  <Loader2 className="animate-spin" />
-                  {submitStep === 'uploading' ? `Uploading Photo (${uploadProgress}%)` : 'Saving Application...'}
-                </>
-              ) : (
-                <>
-                  <CreditCard size={20} />
-                  Submit Application
-                </>
-              )}
-            </div>
-          </button>
+            </button>
+          </motion.div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8 space-y-6 text-center">
-            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Passport Photo</h2>
-            <div className="relative aspect-square w-full bg-gray-50 dark:bg-gray-800 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center overflow-hidden group">
+        {/* Sidebar Section: Photo Upload */}
+        <div className="lg:col-span-4 space-y-6">
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 p-8 space-y-8 text-center shadow-2xl shadow-gray-200/50 dark:shadow-none"
+          >
+            <div className="space-y-1">
+              <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Passport Photo</h2>
+              <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Required for ID Card</p>
+            </div>
+            
+            <div className="relative aspect-[3/4] w-full max-w-[280px] mx-auto bg-gray-50 dark:bg-gray-800 rounded-[2.5rem] border-2 border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center overflow-hidden group transition-all hover:border-orange-500/50">
               {photoPreview ? (
                 <>
                   <Image 
@@ -492,25 +572,31 @@ export default function ApplyForm() {
                     crossOrigin="anonymous"
                   />
                   {isUploading && (
-                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-6 backdrop-blur-sm">
-                      <Loader2 className="animate-spin mb-3 text-orange-500" size={32} />
-                      <p className="text-sm font-bold mb-1">Processing Photo</p>
-                      <p className="text-[10px] opacity-70 mb-3 text-center">Finalizing your ID photo...</p>
-                      <div className="w-full max-w-[140px] h-1.5 bg-white/20 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-orange-500 transition-all duration-300 ease-out" 
-                          style={{ width: `${uploadProgress}%` }}
+                    <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-6 backdrop-blur-md">
+                      <Loader2 className="animate-spin mb-4 text-orange-500" size={40} strokeWidth={3} />
+                      <p className="text-sm font-black mb-1 uppercase tracking-tight">Processing</p>
+                      <div className="w-full max-w-[120px] h-2 bg-white/20 rounded-full overflow-hidden mt-2">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${uploadProgress}%` }}
+                          className="h-full bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.8)]" 
                         />
                       </div>
-                      <p className="text-[10px] font-mono mt-2">{uploadProgress}%</p>
+                      <p className="text-[10px] font-black mt-3 font-mono">{uploadProgress}%</p>
                     </div>
                   )}
                   {uploadError && (
-                    <div className="absolute inset-0 bg-red-500/90 flex flex-col items-center justify-center text-white p-4 text-center backdrop-blur-sm">
-                      <X className="mb-2 text-white" size={32} />
-                      <p className="text-sm font-bold mb-1">Upload Failed</p>
-                      <p className="text-[10px] opacity-90 mb-4">Connection timed out or interrupted.</p>
-                      <div className="flex gap-2">
+                    <div className="absolute inset-0 bg-red-500/95 flex flex-col items-center justify-center text-white p-6 text-center backdrop-blur-md">
+                      <X className="mb-3 text-white" size={40} strokeWidth={3} />
+                      <p className="text-sm font-black mb-2 uppercase">Upload Failed</p>
+                      <div className="flex flex-col gap-2 w-full">
+                        <button 
+                          type="button"
+                          onClick={() => photo && startBackgroundUpload(photo)}
+                          className="w-full py-3 bg-white text-red-600 rounded-xl text-xs font-black hover:bg-gray-100 transition-all shadow-xl uppercase"
+                        >
+                          Retry
+                        </button>
                         <button 
                           type="button"
                           onClick={() => {
@@ -519,67 +605,87 @@ export default function ApplyForm() {
                             setPhotoPreview(null);
                             setPhoto(null);
                           }}
-                          className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition-all"
+                          className="w-full py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black transition-all uppercase"
                         >
                           Cancel
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => photo && startBackgroundUpload(photo)}
-                          className="px-4 py-1.5 bg-white text-red-600 rounded-lg text-xs font-bold hover:bg-gray-100 transition-all shadow-lg"
-                        >
-                          Retry
                         </button>
                       </div>
                     </div>
                   )}
                 </>
               ) : (
-                <>
-                  <Upload className="text-gray-300 dark:text-gray-600 mb-2" size={48} />
-                  <p className="text-xs text-gray-400 dark:text-gray-500 font-medium px-4">Click to upload passport photo</p>
-                </>
+                <div className="flex flex-col items-center gap-4 p-6">
+                  <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-[2rem] flex items-center justify-center text-gray-400 dark:text-gray-500 group-hover:bg-orange-500 group-hover:text-white transition-all duration-500 shadow-inner">
+                    <Upload size={40} strokeWidth={2.5} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-base font-black text-gray-800 dark:text-white uppercase tracking-tight">Upload Photo</p>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">Click or drag & drop</p>
+                  </div>
+                </div>
               )}
               <input
                 type="file"
                 accept="image/*"
                 onChange={onSelectFile}
-                className="absolute inset-0 opacity-0 cursor-pointer"
+                className="absolute inset-0 opacity-0 cursor-pointer z-10"
               />
-              {photoPreview && (
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <p className="text-white text-xs font-bold">Change Photo</p>
+              {photoPreview && !isUploading && !uploadError && (
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                  <div className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-full border border-white/30">
+                    <p className="text-white text-xs font-black uppercase tracking-widest">Change Photo</p>
+                  </div>
                 </div>
               )}
             </div>
-            <ul className="text-[10px] text-gray-400 dark:text-gray-500 text-left space-y-1 font-medium">
-              <li>• White background preferred</li>
-              <li>• Face must be clearly visible</li>
-              <li>• No hats or sunglasses</li>
-              <li>• Max size: 2MB</li>
-            </ul>
-          </div>
+            
+            <div className="space-y-4">
+              <div className="h-px bg-gray-100 dark:bg-gray-800 w-full" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-[1.5rem] text-center">
+                  <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Max Size</p>
+                  <p className="text-sm font-black text-gray-700 dark:text-gray-300">2.0 MB</p>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-[1.5rem] text-center">
+                  <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Format</p>
+                  <p className="text-sm font-black text-gray-700 dark:text-gray-300">JPG/PNG</p>
+                </div>
+              </div>
+              <ul className="text-[11px] text-gray-400 dark:text-gray-500 text-left space-y-3 font-bold uppercase tracking-wider px-2">
+                <li className="flex items-center gap-3"><div className="w-1.5 h-1.5 bg-orange-500 rounded-full" /> White background</li>
+                <li className="flex items-center gap-3"><div className="w-1.5 h-1.5 bg-orange-500 rounded-full" /> Face clearly visible</li>
+                <li className="flex items-center gap-3"><div className="w-1.5 h-1.5 bg-orange-500 rounded-full" /> No hats/sunglasses</li>
+              </ul>
+            </div>
+          </motion.div>
         </div>
       </form>
 
       {isCropping && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-800">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <CropIcon size={20} className="text-orange-500" />
-                Crop Passport Photo
-              </h3>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-md">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-gray-900 rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-800"
+          >
+            <div className="p-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <div className="space-y-1">
+                <h3 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3 tracking-tight">
+                  <CropIcon size={24} className="text-orange-500" strokeWidth={3} />
+                  CROP PHOTO
+                </h3>
+                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Adjust your passport photo</p>
+              </div>
               <button 
                 onClick={() => setIsCropping(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                className="p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-2xl transition-all active:scale-90"
               >
-                <X size={20} className="text-gray-500" />
+                <X size={24} className="text-gray-500" strokeWidth={3} />
               </button>
             </div>
             
-            <div className="p-8 flex flex-col items-center gap-6">
-              <div className="max-h-[50vh] overflow-auto rounded-2xl border border-gray-100 dark:border-gray-800">
+            <div className="p-8 flex flex-col items-center gap-8">
+              <div className="max-h-[50vh] overflow-auto rounded-[2rem] border-4 border-gray-100 dark:border-gray-800 shadow-inner bg-gray-50 dark:bg-gray-800">
                 {!!imgSrc && (
                   <ReactCrop
                     crop={crop}
@@ -602,22 +708,22 @@ export default function ApplyForm() {
                 )}
               </div>
               
-              <div className="flex gap-4 w-full">
+              <div className="flex flex-col sm:flex-row gap-4 w-full">
                 <button
                   onClick={() => setIsCropping(false)}
-                  className="flex-1 py-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-2xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+                  className="flex-1 py-5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-2xl font-black text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-all uppercase tracking-widest"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCropComplete}
-                  className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+                  className="flex-1 py-5 bg-orange-500 text-white rounded-2xl font-black text-sm hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/30 uppercase tracking-widest active:scale-95"
                 >
                   Apply Crop
                 </button>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
     </div>

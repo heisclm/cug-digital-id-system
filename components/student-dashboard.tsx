@@ -8,16 +8,19 @@ import {
   TrendingUp,
   GraduationCap,
   UserCircle,
-  QrCode
+  QrCode,
+  ArrowRight,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { QRCodeSVG } from 'qrcode.react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import Link from 'next/link';
 import { usePaystackPayment } from 'react-paystack';
 import { useAuth } from '@/lib/auth-context';
+import { sendNotification } from '@/lib/notifications';
 
 const StatCard = ({ title, value, icon: Icon, color, trend }: any) => (
   <motion.div 
@@ -85,6 +88,7 @@ export default function StudentDashboard() {
     reference: (new Date()).getTime().toString(),
     email: profile?.email || '',
     amount: 5000,
+    currency: 'GHS',
     publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
     metadata: {
       applicationId: latestApp?.id,
@@ -102,9 +106,40 @@ export default function StudentDashboard() {
 
   const initializePayment = usePaystackPayment(config);
 
-  const onSuccess = (reference: any) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const onSuccess = async (reference: any) => {
     console.log('Payment successful:', reference);
+    if (!profile || !latestApp) return;
+
+    setIsProcessing(true);
+    try {
+      // We don't create the ID card here anymore. 
+      // The Paystack webhook will handle it securely on the server.
+      // We just need to wait for the ID card to appear in our Firestore snapshot.
+      
+      // Optional: You could call a "check payment" API here if you want to be faster,
+      // but usually the webhook is very quick.
+      
+      await sendNotification(
+        profile.uid,
+        'Payment Successful',
+        'Your payment was successful. We are now generating your digital ID card. Please wait a moment...',
+        'success'
+      );
+
+    } catch (error) {
+      console.error('Error processing payment success:', error);
+    } finally {
+      // We keep isProcessing true until the idCard actually appears via the AuthContext snapshot
+    }
   };
+
+  useEffect(() => {
+    if (idCard && isProcessing) {
+      setIsProcessing(false);
+    }
+  }, [idCard, isProcessing]);
 
   const onClose = () => {
     console.log('Payment closed');
@@ -117,28 +152,69 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome back, {profile?.fullName?.split(' ')[0]}! 👋</h1>
-          <p className="text-gray-500 dark:text-gray-400 font-medium">Here&apos;s what&apos;s happening with your digital ID.</p>
+          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">Welcome back, {profile?.fullName?.split(' ')[0]}! 👋</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-medium mt-1">Here&apos;s what&apos;s happening with your digital ID.</p>
         </div>
-        <div className="flex gap-3">
-          {latestApp?.status === 'APPROVED' && !idCard && (
-            <button 
-              onClick={() => initializePayment({ onSuccess, onClose })}
-              className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded-2xl font-bold shadow-lg shadow-green-500/20 hover:bg-green-700 transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              <CreditCard size={20} />
-              Pay for ID (GHS 50.00)
-            </button>
-          )}
-          <Link href="/apply">
-            <button className="w-full sm:w-auto px-6 py-3 bg-orange-500 text-white rounded-2xl font-bold shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 flex items-center justify-center gap-2">
-              <CreditCard size={20} />
-              {idCard ? 'Apply for Renewal' : 'Apply for New ID'}
-            </button>
-          </Link>
-        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+        {isProcessing && (
+          <div className="col-span-1 sm:col-span-2 p-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-3xl flex items-center gap-4">
+            <Loader2 className="animate-spin text-blue-500" />
+            <div>
+              <p className="font-bold text-blue-700 dark:text-blue-400">Generating your ID Card...</p>
+              <p className="text-xs text-blue-600 dark:text-blue-500">This will only take a moment. Please wait.</p>
+            </div>
+          </div>
+        )}
+        {latestApp?.status === 'APPROVED' && !idCard && !isProcessing && (
+          <motion.button 
+            whileHover={{ y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => initializePayment({ onSuccess, onClose })}
+            className="group relative overflow-hidden p-6 sm:p-8 bg-gradient-to-br from-green-500 to-green-600 rounded-[2.5rem] text-left text-white shadow-xl shadow-green-500/20 transition-all"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/20 transition-all" />
+            <div className="relative z-10 flex items-center gap-6">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shrink-0">
+                <CreditCard size={28} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-xl font-black tracking-tight leading-tight">Pay for ID</h3>
+                <p className="text-sm font-bold text-white/80 mt-1">GHS 50.00 • Secure Payment</p>
+              </div>
+              <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center group-hover:bg-white/20 transition-all">
+                <ArrowRight size={20} strokeWidth={3} />
+              </div>
+            </div>
+          </motion.button>
+        )}
+        
+        <Link href="/apply" className="block">
+          <motion.button 
+            whileHover={{ y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full group relative overflow-hidden p-6 sm:p-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-[2.5rem] text-left text-white shadow-xl shadow-orange-500/20 transition-all"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/20 transition-all" />
+            <div className="relative z-10 flex items-center gap-6">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shrink-0">
+                <GraduationCap size={28} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-xl font-black tracking-tight leading-tight">
+                  {idCard ? 'Apply for Renewal' : 'Apply for New ID'}
+                </h3>
+                <p className="text-sm font-bold text-white/80 mt-1">Digital ID Application Process</p>
+              </div>
+              <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center group-hover:bg-white/20 transition-all">
+                <ArrowRight size={20} strokeWidth={3} />
+              </div>
+            </div>
+          </motion.button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

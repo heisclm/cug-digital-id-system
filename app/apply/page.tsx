@@ -17,10 +17,14 @@ const ApplyForm = dynamic(() => import('@/components/apply-form'), {
 export default function ApplyPage() {
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">ID Card Application</h1>
-          <p className="text-gray-500 dark:text-gray-400 font-medium">Fill in the details below to request your digital ID.</p>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-10">
+        <div className="space-y-2">
+          <h1 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white tracking-tight">
+            ID Card <span className="text-orange-500">Application</span>
+          </h1>
+          <p className="text-base sm:text-lg text-gray-500 dark:text-gray-400 font-medium max-w-2xl">
+            Complete the form below to request your official digital student identification card.
+          </p>
         </div>
         <ApplyForm />
       </div>

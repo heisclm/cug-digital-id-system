@@ -66,31 +66,38 @@ export default function NotificationDropdown() {
         {isOpen && (
           <>
             <div 
-              className="fixed inset-0 z-40" 
+              className="fixed inset-0 z-40 bg-black/20 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none transition-all" 
               onClick={() => setIsOpen(false)}
             />
             <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-2xl shadow-gray-500/10 z-50 overflow-hidden"
+              className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-20 sm:top-full mt-2 sm:w-96 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] z-50 overflow-hidden"
             >
-              <div className="p-4 border-b border-gray-50 dark:border-gray-800 flex items-center justify-between">
-                <h3 className="font-bold text-gray-800 dark:text-white">Notifications</h3>
+              <div className="p-5 border-b border-gray-50 dark:border-gray-800 flex items-center justify-between bg-gradient-to-r from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50">
                 <div className="flex items-center gap-2">
+                  <h3 className="font-extrabold text-lg tracking-tight text-gray-900 dark:text-white">Notifications</h3>
+                  {unreadCount > 0 && (
+                    <span className="px-2 py-0.5 bg-orange-500 text-white text-[10px] font-black rounded-full shadow-lg shadow-orange-500/20">
+                      {unreadCount} NEW
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
                   {unreadCount > 0 && (
                     <button 
                       onClick={() => markAllAsRead(profile?.uid!)}
-                      className="text-[10px] font-bold text-orange-600 dark:text-orange-500 hover:underline flex items-center gap-1"
+                      className="text-[10px] font-bold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors flex items-center gap-1"
                     >
-                      <Check size={12} /> Mark all as read
+                      <Check size={12} strokeWidth={3} /> Mark all read
                     </button>
                   )}
                   <button 
                     onClick={() => setIsOpen(false)}
-                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all"
                   >
-                    <X size={16} />
+                    <X size={18} />
                   </button>
                 </div>
               </div>
@@ -114,15 +121,15 @@ export default function NotificationDropdown() {
                         </div>
                         <div className="flex-1 space-y-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <h4 className={`text-sm font-bold truncate ${!n.isRead ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
+                            <h4 className={`text-sm font-bold truncate ${!n.isRead ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                               {n.title}
                             </h4>
-                            <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap flex items-center gap-1">
+                            <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap flex items-center gap-1">
                               <Clock size={10} />
                               {n.createdAt ? formatDistanceToNow(n.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">
+                          <p className={`text-xs leading-relaxed line-clamp-2 ${!n.isRead ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`}>
                             {n.message}
                           </p>
                         </div>

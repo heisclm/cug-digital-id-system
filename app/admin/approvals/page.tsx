@@ -7,7 +7,6 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { Check, X, Eye, Loader2, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateIDPayload } from '@/lib/qr';
 import Image from 'next/image';
 import { sendNotification } from '@/lib/notifications';
 
