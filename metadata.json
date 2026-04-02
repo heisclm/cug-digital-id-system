@@ -1,0 +1,7 @@
+{
+  "name": "CUG Digital ID System",
+  "description": "Comprehensive Digital ID Card Management System for the Catholic University of Ghana (CUG), featuring student applications, Paystack payments, and QR-based security verification.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "Pre-loaded student records for validation.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "department": { "type": "string" },
+        "program": { "type": "string" }
+      },
+      "required": ["studentId", "fullName", "department", "program"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile data for students, admins, and security personnel.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["STUDENT", "ADMIN", "SECURITY"] },
+        "fullName": { "type": "string" },
+        "studentId": { "type": "string", "description": "University Student ID" },
+        "department": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "fullName"]
+    },
+    "Application": {
+      "title": "Application",
+      "description": "ID card application record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentUid": { "type": "string" },
+        "studentId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "department": { "type": "string" },
+        "program": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "type": { "type": "string", "enum": ["NEW", "RENEWAL"] },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "reviewComment": { "type": "string" }
+      },
+      "required": ["studentUid", "studentId", "fullName", "department", "program", "photoUrl", "status", "type", "submittedAt"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Payment transaction record via Paystack.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "applicationId": { "type": "string" },
+        "studentUid": { "type": "string" },
+        "reference": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "SUCCESS", "FAILED"] },
+        "paidAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "applicationId", "studentUid", "reference", "amount", "status"]
+    },
+    "IDCard": {
+      "title": "IDCard",
+      "description": "Issued digital ID card record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentUid": { "type": "string" },
+        "applicationId": { "type": "string" },
+        "qrData": { "type": "string" },
+        "issueDate": { "type": "string", "format": "date-time" },
+        "expiryDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["ACTIVE", "EXPIRED", "REVOKED"] }
+      },
+      "required": ["id", "studentUid", "applicationId", "qrData", "issueDate", "expiryDate", "status"]
+    },
+    "Scan": {
+      "title": "Scan",
+      "description": "Security scan record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "scannedBy": { "type": "string", "description": "UID of the security personnel" },
+        "scannedAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["VERIFIED", "EXPIRED", "INVALID"] }
+      },
+      "required": ["studentId", "scannedBy", "scannedAt", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "In-app notification for users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "success", "warning", "error"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "type", "isRead", "createdAt"]
+    }
+  },
+  "firestore": {
+    "students/{studentId}": {
+      "schema": "Student",
+      "description": "Pre-loaded student records."
+    },
+    "users/{uid}": {
+      "schema": "User",
+      "description": "User profile documents."
+    },
+    "applications/{id}": {
+      "schema": "Application",
+      "description": "ID application documents."
+    },
+    "payments/{id}": {
+      "schema": "Payment",
+      "description": "Payment transaction documents."
+    },
+    "id_cards/{id}": {
+      "schema": "IDCard",
+      "description": "Issued digital ID card documents."
+    },
+    "scans/{id}": {
+      "schema": "Scan",
+      "description": "Security scan documents."
+    },
+    "notifications/{id}": {
+      "schema": "Notification",
+      "description": "User notification documents."
+    }
+  }
+}
