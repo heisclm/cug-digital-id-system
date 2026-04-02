@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import DashboardLayout from '@/components/dashboard-layout';
 import { useAuth } from '@/lib/auth-context';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
 import { 
   Shield, 
   QrCode, 
@@ -45,6 +45,7 @@ export default function SecurityScanPage() {
         const q = query(
           collection(db, 'scans'),
           where('scannedBy', '==', profile.uid),
+          orderBy('scannedAt', 'desc'),
           limit(5)
         );
         const snapshot = await getDocs(q);

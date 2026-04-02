@@ -1,6 +1,10 @@
 import crypto from 'crypto';
 
-const QR_SECRET = process.env.QR_SECRET || 'cug-id-signing-secret-2024';
+if (!process.env.QR_SECRET) {
+  throw new Error("QR_SECRET is missing. Please set it in environment variables.");
+}
+
+const QR_SECRET = process.env.QR_SECRET;
 
 export function generateIDPayload(studentData: {
   uid: string;

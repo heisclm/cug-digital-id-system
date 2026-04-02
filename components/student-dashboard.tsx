@@ -21,6 +21,8 @@ import Link from 'next/link';
 import { usePaystackPayment } from 'react-paystack';
 import { useAuth } from '@/lib/auth-context';
 import { sendNotification } from '@/lib/notifications';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const StatCard = ({ title, value, icon: Icon, color, trend }: any) => (
   <motion.div 
@@ -107,19 +109,18 @@ export default function StudentDashboard() {
   const initializePayment = usePaystackPayment(config);
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingTimeout, setProcessingTimeout] = useState(false);
 
   const onSuccess = async (reference: any) => {
     console.log('Payment successful:', reference);
     if (!profile || !latestApp) return;
 
     setIsProcessing(true);
+    setProcessingTimeout(false);
     try {
       // We don't create the ID card here anymore. 
       // The Paystack webhook will handle it securely on the server.
       // We just need to wait for the ID card to appear in our Firestore snapshot.
-      
-      // Optional: You could call a "check payment" API here if you want to be faster,
-      // but usually the webhook is very quick.
       
       await sendNotification(
         profile.uid,
@@ -130,15 +131,20 @@ export default function StudentDashboard() {
 
     } catch (error) {
       console.error('Error processing payment success:', error);
-    } finally {
-      // We keep isProcessing true until the idCard actually appears via the AuthContext snapshot
     }
   };
 
   useEffect(() => {
-    if (idCard && isProcessing) {
+    let timeout: NodeJS.Timeout;
+    if (isProcessing && !idCard) {
+      timeout = setTimeout(() => {
+        setProcessingTimeout(true);
+      }, 10000);
+    } else if (idCard) {
       setIsProcessing(false);
+      setProcessingTimeout(false);
     }
+    return () => clearTimeout(timeout);
   }, [idCard, isProcessing]);
 
   const onClose = () => {
@@ -149,6 +155,38 @@ export default function StudentDashboard() {
     if (!idCard?.expiryDate || currentTime === null) return null;
     return Math.ceil((idCard.expiryDate.toDate().getTime() - currentTime) / (1000 * 60 * 60 * 24));
   }, [idCard, currentTime]);
+
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const downloadPDF = async () => {
+    const input = document.getElementById('id-card-element');
+    if (!input) return;
+
+    setIsDownloading(true);
+    try {
+      const canvas = await html2canvas(input, {
+        scale: 2, // Higher resolution
+        useCORS: true, // Allow loading cross-origin images
+        allowTaint: false, // Prevent tainted canvas
+        backgroundColor: null, // Transparent background
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`${idCard?.studentId || 'student'}_id_card.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -161,12 +199,22 @@ export default function StudentDashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         {isProcessing && (
-          <div className="col-span-1 sm:col-span-2 p-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-3xl flex items-center gap-4">
-            <Loader2 className="animate-spin text-blue-500" />
-            <div>
-              <p className="font-bold text-blue-700 dark:text-blue-400">Generating your ID Card...</p>
-              <p className="text-xs text-blue-600 dark:text-blue-500">This will only take a moment. Please wait.</p>
+          <div className="col-span-1 sm:col-span-2 p-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Loader2 className="animate-spin text-blue-500 shrink-0" />
+              <div>
+                <p className="font-bold text-blue-700 dark:text-blue-400">Generating your ID Card...</p>
+                <p className="text-xs text-blue-600 dark:text-blue-500">This will only take a moment. Please wait.</p>
+              </div>
             </div>
+            {processingTimeout && (
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors shrink-0"
+              >
+                Refresh Page
+              </button>
+            )}
           </div>
         )}
         {latestApp?.status === 'APPROVED' && !idCard && !isProcessing && (
@@ -232,11 +280,20 @@ export default function StudentDashboard() {
         <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-8 space-y-6 transition-colors">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-800 dark:text-white">Digital ID Preview</h2>
-            {idCard && <button className="text-orange-600 dark:text-orange-500 font-bold text-sm hover:underline">Download PDF</button>}
+            {idCard && (
+              <button 
+                onClick={downloadPDF}
+                disabled={isDownloading}
+                className="text-orange-600 dark:text-orange-500 font-bold text-sm hover:underline disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDownloading ? <Loader2 size={16} className="animate-spin" /> : null}
+                {isDownloading ? 'Generating...' : 'Download PDF'}
+              </button>
+            )}
           </div>
           
           {idCard ? (
-            <div className="relative aspect-[1.6/1] w-full max-w-md mx-auto bg-gradient-to-br from-orange-500 to-orange-600 rounded-[2rem] p-6 sm:p-8 text-white shadow-2xl shadow-orange-500/30 overflow-hidden group">
+            <div id="id-card-element" className="relative aspect-[1.6/1] w-full max-w-md mx-auto bg-gradient-to-br from-orange-500 to-orange-600 rounded-[2rem] p-6 sm:p-8 text-white shadow-2xl shadow-orange-500/30 overflow-hidden group">
               <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-white/10 rounded-full -mr-24 sm:-mr-32 -mt-24 sm:-mt-32 blur-3xl group-hover:bg-white/20 transition-all duration-500" />
               <div className="relative z-10 h-full flex flex-col justify-between">
                 <div className="flex justify-between items-start">
