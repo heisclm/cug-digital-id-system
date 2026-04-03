@@ -165,11 +165,18 @@ export default function SecurityScanPage() {
       await html5QrCode.start(
         { facingMode: "environment" },
         {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
+          fps: 20, // Increased FPS for faster processing
+          qrbox: { width: 300, height: 300 }, // Larger scanning area
+          aspectRatio: 1.0, // Force square aspect ratio
         },
         onScanSuccess,
-        onScanFailure
+        (error) => {
+          // Suppress "NotFoundException" logs as they are expected during continuous scanning
+          if (typeof error === 'string' && error.includes('NotFoundException')) {
+            return;
+          }
+          onScanFailure(error);
+        }
       );
     } catch (err: any) {
       console.error("Camera start error:", err);
