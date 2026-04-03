@@ -75,9 +75,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (userProfile.role === 'STUDENT') {
           const idQuery = query(collection(db, 'id_cards'), where('studentUid', '==', user.uid), where('status', '==', 'ACTIVE'));
           onSnapshot(idQuery, (snapshot) => {
+            console.log('ID card snapshot received, docs count:', snapshot.size);
             if (!snapshot.empty) {
+              console.log('ID card found:', snapshot.docs[0].id);
               setIdCard(snapshot.docs[0].data() as any);
             } else {
+              console.log('No active ID card found for user');
               setIdCard(null);
             }
           });

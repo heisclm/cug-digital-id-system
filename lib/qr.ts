@@ -12,6 +12,7 @@ export function generateIDPayload(studentData: {
   fullName: string;
   expiryDate: string;
 }) {
+  console.log('Generating ID payload for:', studentData);
   const payload = JSON.stringify({
     u: studentData.uid,
     s: studentData.studentId,
@@ -19,6 +20,7 @@ export function generateIDPayload(studentData: {
     e: studentData.expiryDate,
     t: Date.now(),
   });
+  console.log('Payload stringified:', payload);
 
   // Simple HMAC for integrity check
   const signature = crypto
@@ -26,6 +28,7 @@ export function generateIDPayload(studentData: {
     .update(payload)
     .digest('hex')
     .substring(0, 8);
+  console.log('Signature generated:', signature);
 
   return `${payload}|${signature}`;
 }

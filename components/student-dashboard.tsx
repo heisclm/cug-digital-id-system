@@ -86,8 +86,15 @@ export default function StudentDashboard() {
     return () => unsubscribe();
   }, [profile]);
 
-  const config = {
-    reference: (new Date()).getTime().toString(),
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingTimeout, setProcessingTimeout] = useState(false);
+  
+  // Track if we are waiting for an ID card
+  // We are "waiting" if the app is PAID but no ID card exists, OR if we just finished payment
+  const isWaitingForId = latestApp?.status === 'PAID' && !idCard;
+
+  const paystackConfig = React.useMemo(() => ({
+    reference: `ref_${latestApp?.id || 'new'}_${Date.now()}`,
     email: profile?.email || '',
     amount: 5000,
     currency: 'GHS',
@@ -96,56 +103,52 @@ export default function StudentDashboard() {
       applicationId: latestApp?.id,
       studentUid: profile?.uid,
       studentId: latestApp?.studentId,
-      custom_fields: [
-        {
-          display_name: "Student ID",
-          variable_name: "student_id",
-          value: latestApp?.studentId
-        }
-      ]
-    }
-  };
+    },
+  }), [latestApp, profile]);
 
-  const initializePayment = usePaystackPayment(config);
-
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingTimeout, setProcessingTimeout] = useState(false);
+  const initializePayment = usePaystackPayment(paystackConfig);
 
   const onSuccess = async (reference: any) => {
-    console.log('Payment successful:', reference);
-    if (!profile || !latestApp) return;
-
+    console.log('Payment successful callback:', reference);
     setIsProcessing(true);
     setProcessingTimeout(false);
-    try {
-      // We don't create the ID card here anymore. 
-      // The Paystack webhook will handle it securely on the server.
-      // We just need to wait for the ID card to appear in our Firestore snapshot.
-      
-      await sendNotification(
-        profile.uid,
-        'Payment Successful',
-        'Your payment was successful. We are now generating your digital ID card. Please wait a moment...',
-        'success'
-      );
-
-    } catch (error) {
-      console.error('Error processing payment success:', error);
+    
+    if (profile?.uid) {
+      try {
+        await sendNotification(
+          profile.uid,
+          'Payment Received',
+          'Your payment was successful. We are now finalizing your ID card generation. This usually takes less than 30 seconds.',
+          'success'
+        );
+      } catch (e) {
+        console.error('Notification error:', e);
+      }
     }
   };
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
-    if (isProcessing && !idCard) {
-      timeout = setTimeout(() => {
-        setProcessingTimeout(true);
-      }, 10000);
-    } else if (idCard) {
+    
+    // If we are in a state where we expect an ID card soon
+    if (isWaitingForId || isProcessing) {
+      // If we have the ID card, we are done
+      if (idCard) {
+        setIsProcessing(false);
+        setProcessingTimeout(false);
+      } else {
+        // Otherwise, set a timeout to show the refresh button if it takes too long
+        timeout = setTimeout(() => {
+          setProcessingTimeout(true);
+        }, 15000); // 15 seconds
+      }
+    } else {
       setIsProcessing(false);
       setProcessingTimeout(false);
     }
+    
     return () => clearTimeout(timeout);
-  }, [idCard, isProcessing]);
+  }, [isWaitingForId, isProcessing, idCard]);
 
   const onClose = () => {
     console.log('Payment closed');
@@ -198,13 +201,19 @@ export default function StudentDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-        {isProcessing && (
+        {(isProcessing || isWaitingForId) && (
           <div className="col-span-1 sm:col-span-2 p-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <Loader2 className="animate-spin text-blue-500 shrink-0" />
               <div>
-                <p className="font-bold text-blue-700 dark:text-blue-400">Generating your ID Card...</p>
-                <p className="text-xs text-blue-600 dark:text-blue-500">This will only take a moment. Please wait.</p>
+                <p className="font-bold text-blue-700 dark:text-blue-400">
+                  {isWaitingForId ? 'Processing Payment...' : 'Generating your ID Card...'}
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-500">
+                  {isWaitingForId 
+                    ? 'Your payment was successful. We are generating your ID card.' 
+                    : 'This will only take a moment. Please wait.'}
+                </p>
               </div>
             </div>
             {processingTimeout && (
@@ -217,7 +226,7 @@ export default function StudentDashboard() {
             )}
           </div>
         )}
-        {latestApp?.status === 'APPROVED' && !idCard && !isProcessing && (
+        {latestApp?.status === 'APPROVED' && !idCard && !isProcessing && !isWaitingForId && (
           <motion.button 
             whileHover={{ y: -4 }}
             whileTap={{ scale: 0.98 }}
