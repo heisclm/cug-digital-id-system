@@ -29,17 +29,11 @@ export function generateIDPayload(studentData: {
     .digest('hex')
     .substring(0, 16);
   
-  console.log('Generated payload:', payload);
-  console.log('Generated signature:', signature);
-  
   return `${payload}.${signature}`;
 }
 
-export function verifyIDPayload(qrString: string) {
+export function verifyIDPayload(qrString: string): { valid: boolean; error?: string; data?: any } {
   const cleanQrString = qrString.trim();
-  console.log('Verifying QR string:', cleanQrString);
-  console.log('QR_SECRET length:', QR_SECRET.length);
-  console.log('QR_SECRET prefix:', QR_SECRET.substring(0, 4) + '...');
   
   // Try new format first (dot separator)
   const lastDotIndex = cleanQrString.lastIndexOf('.');
@@ -57,14 +51,11 @@ export function verifyIDPayload(qrString: string) {
       try {
         const data = JSON.parse(Buffer.from(payload, 'base64').toString('utf-8'));
         const expiry = new Date(data.e);
-        if (expiry < new Date()) return { ...data, expired: true };
-        return { ...data, expired: false };
+        if (expiry < new Date()) return { valid: false, error: "QR code expired", data: { ...data, expired: true } };
+        return { valid: true, data: { ...data, expired: false } };
       } catch (e) {
-        console.error('Error parsing payload:', e);
-        return null;
+        return { valid: false, error: "Payload parsing error" };
       }
-    } else {
-        console.error('Signature mismatch (new format). Expected:', expectedSignature, 'Got:', signature);
     }
   }
 
@@ -81,17 +72,13 @@ export function verifyIDPayload(qrString: string) {
       try {
         const data = JSON.parse(payload);
         const expiry = new Date(data.e);
-        if (expiry < new Date()) return { ...data, expired: true };
-        return { ...data, expired: false };
+        if (expiry < new Date()) return { valid: false, error: "QR code expired", data: { ...data, expired: true } };
+        return { valid: true, data: { ...data, expired: false } };
       } catch (e) {
-        console.error('Error parsing payload:', e);
-        return null;
+        return { valid: false, error: "Payload parsing error" };
       }
-    } else {
-        console.error('Signature mismatch (old format). Expected:', expectedSignature, 'Got:', signature);
     }
   }
 
-  console.error('Signature mismatch or invalid format');
-  return null;
+  return { valid: false, error: "Invalid QR code signature or format" };
 }

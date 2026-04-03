@@ -12,18 +12,18 @@ export async function POST(req: Request) {
 
     const verifiedData = verifyIDPayload(qrString);
 
-    if (!verifiedData) {
-      return NextResponse.json({ error: 'Invalid QR Code signature. This ID may be forged.' }, { status: 400 });
+    if (!verifiedData.valid) {
+      return NextResponse.json({ error: verifiedData.error || 'Invalid QR Code signature' }, { status: 400 });
     }
 
-    if (verifiedData.expired) {
+    if (verifiedData.data.expired) {
       return NextResponse.json({ error: 'This ID card has expired.', expired: true }, { status: 400 });
     }
 
     // Double check with database to ensure it's not revoked
     const idCardsRef = adminDb.collection('id_cards');
     const snapshot = await idCardsRef
-      .where('studentId', '==', verifiedData.s)
+      .where('studentId', '==', verifiedData.data.s)
       .where('status', '==', 'ACTIVE')
       .limit(1)
       .get();
