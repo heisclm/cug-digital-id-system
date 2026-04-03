@@ -321,21 +321,45 @@ export default function StudentDashboard() {
           </div>
           
           {idCard ? (
-            <div id="id-card-element" className="relative aspect-[1.6/1] w-full max-w-md mx-auto bg-gradient-to-br from-orange-500 to-orange-600 rounded-[2rem] p-6 sm:p-8 text-white shadow-2xl shadow-orange-500/30 overflow-hidden group">
-              <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-white/10 rounded-full -mr-24 sm:-mr-32 -mt-24 sm:-mt-32 blur-3xl group-hover:bg-white/20 transition-all duration-500" />
+            <div 
+              id="id-card-element" 
+              className="relative aspect-[1.6/1] w-full max-w-md mx-auto rounded-[2rem] p-6 sm:p-8 text-white overflow-hidden group"
+              style={{ 
+                background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                boxShadow: '0 25px 50px -12px rgba(249, 115, 22, 0.3)'
+              }}
+            >
+              {idCard.isFinalYear && (
+                <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                  FINAL YEAR
+                </div>
+              )}
+              <div 
+                className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 rounded-full -mr-24 sm:-mr-32 -mt-24 sm:-mt-32 blur-3xl group-hover:opacity-40 transition-all duration-500" 
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+              />
               <div className="relative z-10 h-full flex flex-col justify-between">
                 <div className="flex justify-between items-start">
                   <div className="space-y-1">
                     <div className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest opacity-80">Catholic University of Ghana</div>
                     <div className="text-base sm:text-lg font-black tracking-tight">STUDENT ID</div>
                   </div>
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                  <div 
+                    className="w-10 h-10 sm:w-12 sm:h-12 backdrop-blur-md rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+                  >
                     <GraduationCap size={20} className="sm:w-6 sm:h-6" />
                   </div>
                 </div>
 
                 <div className="flex gap-4 sm:gap-6 items-end">
-                  <div className="relative w-20 h-28 sm:w-24 sm:h-32 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 flex items-center justify-center overflow-hidden shrink-0">
+                  <div 
+                    className="relative w-20 h-28 sm:w-24 sm:h-32 backdrop-blur-md rounded-2xl border flex items-center justify-center overflow-hidden shrink-0"
+                    style={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                      borderColor: 'rgba(255, 255, 255, 0.3)'
+                    }}
+                  >
                     {idCard.photoUrl ? (
                       <Image 
                         src={idCard.photoUrl} 
@@ -348,10 +372,14 @@ export default function StudentDashboard() {
                       <div className="text-white/40"><UserCircle size={40} className="sm:w-12 sm:h-12" /></div>
                     )}
                   </div>
-                  <div className="flex-1 space-y-2 sm:space-y-4 min-w-0">
+                  <div className="flex-1 space-y-1 sm:space-y-2 min-w-0">
                     <div>
                       <div className="text-[8px] sm:text-[10px] font-bold uppercase opacity-60">Full Name</div>
                       <div className="text-sm sm:text-lg font-bold leading-tight truncate">{idCard.fullName}</div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] sm:text-[10px] font-bold uppercase opacity-60">Department</div>
+                      <div className="text-xs sm:text-sm font-bold truncate">{idCard.department || 'N/A'}</div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:gap-4">
                       <div>

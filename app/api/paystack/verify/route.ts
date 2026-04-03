@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb, FieldValue, Timestamp } from '@/lib/firebase-admin';
 import { generateIDPayload } from '@/lib/qr';
+import { calculateGraduationYear } from '@/lib/graduation';
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
 
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
     const appRef = adminDb.collection('applications').doc(applicationId);
     const paymentRef = adminDb.collection('payments').doc(paymentId);
     const userRef = adminDb.collection('users').doc(studentUid);
+    const studentRef = adminDb.collection('students').doc(studentId);
     
     let alreadyProcessed = false;
 
@@ -52,10 +54,18 @@ export async function POST(req: Request) {
         throw new Error(`Application ${applicationId} not found`);
       }
 
+      const studentDoc = await transaction.get(studentRef);
+      const studentData = studentDoc.exists ? studentDoc.data() : {};
+
       const appData = appDoc.data();
       if (appData?.studentUid !== studentUid) {
         throw new Error(`Application ${applicationId} unauthorized access`);
       }
+
+      // Calculate Graduation Year
+      const graduationYear = calculateGraduationYear(studentData);
+      const expiryDate = new Date(`${graduationYear}-12-31`);
+      const isFinalYear = graduationYear === new Date().getFullYear();
 
       // 1. Create Payment Record
       transaction.set(paymentRef, {
@@ -84,6 +94,7 @@ export async function POST(req: Request) {
         studentId: studentId,
         fullName: appData?.fullName || 'N/A',
         expiryDate: expiryDate.toISOString(),
+        graduationYear,
       });
 
       const idCardId = `id_${studentId}_${Date.now()}`;
@@ -97,6 +108,8 @@ export async function POST(req: Request) {
         qrPayload: qrPayload,
         issueDate: FieldValue.serverTimestamp(),
         expiryDate: Timestamp.fromDate(expiryDate),
+        graduationYear,
+        isFinalYear,
         status: 'ACTIVE',
         fullName: appData?.fullName,
         department: appData?.department,
@@ -115,7 +128,7 @@ export async function POST(req: Request) {
       transaction.set(notificationRef, {
         userId: studentUid,
         title: 'ID Card Generated!',
-        message: 'Your payment was successful and your digital ID card has been generated.',
+        message: `Your payment was successful and your digital ID card has been generated. ${isFinalYear ? 'This is your final year!' : ''}`,
         type: 'success',
         isRead: false,
         createdAt: FieldValue.serverTimestamp(),

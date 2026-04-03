@@ -14,7 +14,7 @@ service cloud.firestore {
     // Fields: id, applicationId, studentUid, reference, amount, status, paidAt
     //
     // Collection: id_cards
-    // Fields: id, studentUid, applicationId, qrData, issueDate, expiryDate, status
+    // Fields: id, studentUid, applicationId, qrData, issueDate, expiryDate, status, graduationYear, isFinalYear
     //
     // Collection: students
     // Fields: studentId, fullName, department, program
@@ -55,6 +55,12 @@ service cloud.firestore {
              get(/databases/$(database)/documents/students/$(data.studentId)).data.fullName == data.fullName;
     }
 
+    function isValidIDCard(data) {
+      return data.keys().hasAll(['id', 'studentUid', 'applicationId', 'qrPayload', 'issueDate', 'expiryDate', 'status', 'graduationYear', 'isFinalYear']) &&
+             data.graduationYear is number &&
+             data.isFinalYear is bool;
+    }
+
     function isValidScan(data) {
       return data.keys().hasAll(['studentId', 'scannedBy', 'scannedAt', 'status']) &&
              data.studentId is string &&
@@ -84,7 +90,8 @@ service cloud.firestore {
 
     match /id_cards/{id} {
       allow read: if isAuthenticated() && (isOwner(resource.data.studentUid) || isAdmin() || isSecurity());
-      allow create, update: if isAdmin(); // Allow admins or Admin SDK
+      allow create: if isAdmin() && isValidIDCard(request.resource.data);
+      allow update: if isAdmin() && isValidIDCard(request.resource.data);
     }
 
     match /students/{studentId} {

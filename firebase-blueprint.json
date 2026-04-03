@@ -74,9 +74,15 @@
         "qrData": { "type": "string" },
         "issueDate": { "type": "string", "format": "date-time" },
         "expiryDate": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["ACTIVE", "EXPIRED", "REVOKED"] }
+        "status": { "type": "string", "enum": ["ACTIVE", "EXPIRED", "REVOKED"] },
+        "fullName": { "type": "string" },
+        "department": { "type": "string" },
+        "program": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "graduationYear": { "type": "number" },
+        "isFinalYear": { "type": "boolean" }
       },
-      "required": ["id", "studentUid", "applicationId", "qrData", "issueDate", "expiryDate", "status"]
+      "required": ["id", "studentUid", "applicationId", "qrData", "issueDate", "expiryDate", "status", "graduationYear", "isFinalYear"]
     },
     "Scan": {
       "title": "Scan",
