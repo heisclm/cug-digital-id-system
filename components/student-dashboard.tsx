@@ -125,6 +125,25 @@ export default function StudentDashboard() {
         console.error('Notification error:', e);
       }
     }
+
+    // Call our backend to verify the payment and generate the ID card
+    try {
+      const res = await fetch('/api/paystack/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reference: reference.reference || reference }),
+      });
+      
+      if (!res.ok) {
+        console.error('Failed to verify payment on backend');
+      } else {
+        console.log('Payment verified successfully on backend');
+      }
+    } catch (error) {
+      console.error('Error calling verify endpoint:', error);
+    }
   };
 
   useEffect(() => {
