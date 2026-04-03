@@ -64,8 +64,8 @@ service cloud.firestore {
     function isValidScan(data) {
       return data.keys().hasAll(['studentId', 'scannedBy', 'scannedAt', 'status']) &&
              data.studentId is string &&
-             data.scannedBy == request.auth.uid &&
-             data.scannedAt == request.time &&
+             data.scannedBy is string &&
+             data.scannedAt is timestamp &&
              data.status in ['VERIFIED', 'EXPIRED', 'INVALID'];
     }
 

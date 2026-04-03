@@ -423,9 +423,6 @@ export default function StudentDashboard() {
           <p className="text-sm text-gray-500 dark:text-gray-400 font-medium px-4">
             Present this QR code to security personnel for campus access.
           </p>
-          <button className="w-full py-4 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-2xl font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
-            Refresh Code
-          </button>
         </div>
       </div>
     </div>

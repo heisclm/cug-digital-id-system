@@ -71,7 +71,7 @@ export default function SecurityScanPage() {
       await addDoc(collection(db, 'scans'), scanData);
       
       // Update local recent scans
-      setRecentScans(prev => [{ id: Date.now().toString(), ...scanData }, ...prev.slice(0, 4)]);
+      setRecentScans(prev => [{ id: Date.now().toString(), ...scanData, scannedAt: { toDate: () => new Date() } }, ...prev.slice(0, 4)]);
     } catch (err) {
       console.error("Error recording scan:", err);
     }
