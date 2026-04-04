@@ -64,7 +64,7 @@ export async function POST(req: Request) {
 
       // Calculate Graduation Year
       const graduationYear = calculateGraduationYear(studentData);
-      const expiryDate = new Date(`${graduationYear}-12-31`);
+      const calculatedExpiryDate = new Date(`${graduationYear}-12-31`);
       const isFinalYear = graduationYear === new Date().getFullYear();
 
       // 1. Create Payment Record
@@ -86,8 +86,8 @@ export async function POST(req: Request) {
 
       // 3. Generate ID Card
       const issueDate = new Date();
-      const expiryDate = new Date();
-      expiryDate.setFullYear(issueDate.getFullYear() + 1);
+      // Use the calculated expiry date based on graduation year, or fallback to 1 year
+      const expiryDate = calculatedExpiryDate > issueDate ? calculatedExpiryDate : new Date(issueDate.getFullYear() + 1, issueDate.getMonth(), issueDate.getDate());
 
       const qrPayload = generateIDPayload({
         uid: studentUid,
